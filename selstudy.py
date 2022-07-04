@@ -3,6 +3,8 @@ import time
 import os
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+# 검색하는 컴포넌트가 비었을 때 크롤링을 종료하지 않고 예외처리
+from selenium.common.exceptions import NoSuchElementException
 
 import requests
 import csv
@@ -56,11 +58,12 @@ time.sleep(1)
 
 # 현위치 자동화 어떻게 하지?
 # youat = input("현위치 입력 : ")
-# youat = "강남구 삼성2동 144-26"
-youat = "서울 관악구 봉천로 569"
+youat = "강남구 삼성2동 144-26"
+# youat = "서울 관악구 봉천로 569"
 # searchloc = input("맛집 검색 지역 입력 : ")
-# searchloc = "강남구 삼성동 음식점"
-searchloc = "관악구 낙성대 카페"
+# searchloc = "삼성역 스타벅스"
+searchloc = "강남구 삼성동 음식점"
+# searchloc = "관악구 낙성대 카페"
 
 #2. 음식점 입력 후 찾기 버튼 클릭 xpath활용
 search_area = driver.find_element_by_xpath('//*[@id="search.keyword.query"]') #검색창
@@ -153,13 +156,28 @@ def getCafeInfo():
     else:
         review = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[1]/div[2]/div/div/a[2]/span').text
     print("444-1")
-    addr = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[1]/div/span[1]').text
-    addr_simple = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[1]/div/span[2]').text
+    
+    addr = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[1]/div/span').text
+    
+    ### 지번에 대한 누락 오류 수정 필요
+
+    try:
+        addr_simple = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[1]/div/span[2]').text
+        
+    except NoSuchElementException:  #spelling error making this code not work as expected
+        print("addr_simple xpath doesn't exist")
+        addr_simple = ""
+    
+    print(addr_simple)
+
     print("555")
     # //*[@id="mArticle"]/div[1]/div[2]/div[2]/div #공통부
     distin = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[2]/div').text
 
     if "영업중" in distin:
+        cafe_operating = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[2]/div/div[1]/strong/span').text
+        cafe_op_hour = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[2]/div/div[1]/ul/li/span').text
+    elif "브레이크타임" in distin:
         cafe_operating = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[2]/div/div[1]/strong/span').text
         cafe_op_hour = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[2]/div/div[1]/ul/li/span').text
     elif "금일영업마감" in distin:
@@ -169,22 +187,31 @@ def getCafeInfo():
         cafe_operating = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[2]/div/div/strong/span').text
         cafe_op_hour = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[2]/div/div/ul/li/span').text
     elif "휴무일" in distin:
-        cafe_operating = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[2]/div/div[1]/strong/span').text
-        cafe_op_hour = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[2]/div/div[1]/ul/li/span').text
+        try:
+            cafe_operating = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[2]/div/div[1]/strong/span').text
+            cafe_op_hour = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[2]/div/div[1]/ul/li/span').text
+        except:
+            cafe_operating = driver.find_element_by_xpath('//*[@id="mArticle"]/div[1]/div[2]/div[2]/div/div/strong').text
+            cafe_op_hour = "null data"
     else:
         cafe_operating = "null data"
         cafe_op_hour = "null data"
-
+        
         
     print("666")
     link = driver.find_element_by_xpath('/html/head/meta[8]').text
     print(link)
 
     #우편번호 제거
-    addr = addr[:-9]
+    
 
+    #####거리 정보가 없을 때 대안 필요
     #거리 정보에서 (지번) 제거
-    addr_simple = addr_simple[2:len(addr_simple)]
+    if addr_simple == "":
+        addr_simple = addr
+    else:
+        addr = addr[:-9]
+        addr_simple = addr_simple[2:len(addr_simple)]
     print(addr_simple)
     #음식점 거리 정보
     cafe_coord = get_location(addr_simple)
